@@ -1,15 +1,28 @@
-"""Utility functions for filenames and word labels."""
+"""Utility functions for extracting filename metadata and normalizing word labels.
+
+This module supports the dataset-building and matching stages.
+It extracts recording metadata from filenames and standardizes
+word labels before lexical comparison.
+"""
 
 import re
 import unicodedata
 from pathlib import Path
 
 
+# Different apostrophe symbols that may occur in TextGrid labels.
 APOSTROPHE_VARIANTS = ("’", "‘", "ʼ", "ʹ", "`", "´")
 
 
 def extract_file_id(filename: str | Path) -> str | None:
-    """Extract the three-digit recording ID from a project filename."""
+    """Extract the three-digit recording ID from a project filename.
+
+    The ID is expected to appear between underscores, for example:
+    "_051_".
+
+    Returns the ID as a string so leading zeros are preserved.
+    Returns None if no matching ID is found.
+    """
 
     name = Path(filename).name
 
@@ -22,7 +35,13 @@ def extract_file_id(filename: str | Path) -> str | None:
 
 
 def extract_gender(filename: str | Path) -> str | None:
-    """Extract the speaker gender from a project filename."""
+    """Extract the speaker gender from the filename.
+
+    The filename is expected to contain F or M before the
+    three-digit recording ID.
+
+    Returns "Female", "Male", or None.
+    """
 
     name = Path(filename).name
 
@@ -43,7 +62,11 @@ def extract_gender(filename: str | Path) -> str | None:
 
 
 def extract_recording_location(filename: str | Path) -> str | None:
-    """Extract the recording location from a project filename."""
+    """Extract the recording location from the project filename.
+
+    The known location labels in this dataset are
+    "Kigali" and "UR-CE".
+    """
 
     name = Path(filename).name
 
@@ -57,21 +80,33 @@ def extract_recording_location(filename: str | Path) -> str | None:
 
 
 def normalize_word(text: object) -> str:
-    """Normalize a word before comparing labels from different alignments."""
+    """Standardize a word label before lexical matching.
+
+    Normalization removes irrelevant formatting differences between
+    alignment systems while preserving the actual lexical content.
+
+    It:
+    - normalizes Unicode representation,
+    - standardizes apostrophe symbols,
+    - removes extra whitespace,
+    - ignores capitalization differences.
+
+    Accents and diacritics are preserved.
+    """
 
     word = str(text)
 
-    # Normalize Unicode characters while preserving accents and diacritics.
+    # Standardize Unicode representation without removing accents.
     word = unicodedata.normalize("NFC", word)
 
-    # Replace different apostrophe symbols with the standard apostrophe.
+    # Standardize different apostrophe characters.
     for apostrophe in APOSTROPHE_VARIANTS:
         word = word.replace(apostrophe, "'")
 
-    # Remove extra spaces.
+    # Collapse repeated or unnecessary whitespace.
     word = " ".join(word.split())
 
-    # Ignore capitalization during lexical matching.
+    # Make capitalization irrelevant for matching.
     word = word.casefold()
 
     return word

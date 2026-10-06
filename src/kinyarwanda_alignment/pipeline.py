@@ -1,4 +1,10 @@
-"""Runs the complete Kinyarwanda alignment evaluation pipeline."""
+"""Runs the complete Kinyarwanda alignment evaluation pipeline.
+
+This module coordinates all stages of the analysis.
+
+It connects the dataset, metrics, statistics, diagnostics, and plotting
+modules and saves the generated results to the configured output folders.
+"""
 
 import json
 from pathlib import Path
@@ -27,7 +33,10 @@ def _save_dataframe(
     df: pd.DataFrame,
     path: Path,
 ) -> None:
-    """Saves a dataframe as a UTF-8 CSV file."""
+    """Save a pandas DataFrame as a UTF-8 CSV file.
+
+    The parent directory is created automatically if it does not exist.
+    """
 
     path.parent.mkdir(
         parents=True,
@@ -42,8 +51,25 @@ def _save_dataframe(
 
 
 def run_pipeline(config: dict) -> dict:
-    """Runs all stages of the alignment evaluation."""
+    """Run the complete alignment-evaluation workflow.
 
+    The function performs the stages in this order:
+
+    1. Build and validate the canonical word-level dataset.
+    2. Calculate boundary errors.
+    3. Calculate descriptive summaries.
+    4. Compare MFA and WebMAUS at recording level.
+    5. Inspect large errors.
+    6. Prepare output directories.
+    7. Save result tables.
+    8. Save the statistical test result.
+    9. Create figures.
+
+    It returns the important DataFrames, statistical result,
+    and output paths.
+    """
+
+    # Read the relevant sections of the configuration.
     inputs = config["inputs"]
     outputs = config["outputs"]
 
@@ -61,7 +87,8 @@ def run_pipeline(config: dict) -> dict:
         expected["annotators"]
     )
 
-    # 1. Build and validate the word-level dataset.
+
+    # 1. Build and validate the canonical matched-word dataset.
     evaluation_df = build_evaluation_dataframe(
         inputs["manual_reference_dir"],
         inputs["webmaus_dir"],
@@ -76,6 +103,7 @@ def run_pipeline(config: dict) -> dict:
         expected_annotators=expected_annotators,
     )
 
+    # Save the canonical dataset before calculating additional measures.
     canonical_csv = Path(
         outputs["canonical_csv"]
     )
@@ -85,7 +113,8 @@ def run_pipeline(config: dict) -> dict:
         canonical_csv,
     )
 
-    # 2. Calculate boundary errors.
+
+    # 2. Calculate word-level and boundary-level errors.
     analysis_df = add_error_columns(
         evaluation_df
     )
@@ -94,7 +123,8 @@ def run_pipeline(config: dict) -> dict:
         analysis_df
     )
 
-    # 3. Calculate descriptive summaries.
+
+    # 3. Calculate descriptive accuracy summaries.
     overall_df = overall_edge_summary(
         edge_df,
         n_words=len(analysis_df),
@@ -104,7 +134,8 @@ def run_pipeline(config: dict) -> dict:
         analysis_df
     )
 
-    # 4. Compare the aligners at the recording level.
+
+    # 4. Aggregate to recording level and perform the paired comparison.
     recording_df = recording_level_summary(
         analysis_df
     )
@@ -113,7 +144,8 @@ def run_pipeline(config: dict) -> dict:
         recording_df
     )
 
-    # 5. Inspect large errors.
+
+    # 5. Create diagnostic summaries for unusually large errors.
     large_errors_df = large_error_summary(
         edge_df
     )
@@ -126,7 +158,8 @@ def run_pipeline(config: dict) -> dict:
         ),
     )
 
-    # 6. Prepare output folders.
+
+    # 6. Prepare the output folders.
     tables_dir = Path(
         outputs["tables_dir"]
     )
@@ -145,7 +178,8 @@ def run_pipeline(config: dict) -> dict:
         exist_ok=True,
     )
 
-    # 7. Save result tables.
+
+    # 7. Save the descriptive and diagnostic result tables.
     _save_dataframe(
         overall_df,
         tables_dir / "overall_edge_summary.csv",
@@ -171,7 +205,8 @@ def run_pipeline(config: dict) -> dict:
         tables_dir / "top_error_words.csv",
     )
 
-    # 8. Save the recording-level statistical result.
+
+    # 8. Save the recording-level statistical result as JSON.
     test_path = (
         tables_dir
         / "recording_level_test.json"
@@ -186,7 +221,8 @@ def run_pipeline(config: dict) -> dict:
         encoding="utf-8",
     )
 
-    # 9. Create figures.
+
+    # 9. Create and save the evaluation figures.
     save_cumulative_edge_error(
         edge_df,
         figures_dir
@@ -199,6 +235,8 @@ def run_pipeline(config: dict) -> dict:
         / "paired_recording_mae.pdf",
     )
 
+
+    # Return the main intermediate results and output locations.
     return {
         "evaluation_df": evaluation_df,
         "analysis_df": analysis_df,

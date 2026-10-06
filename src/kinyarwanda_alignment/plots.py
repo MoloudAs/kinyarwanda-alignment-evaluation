@@ -1,4 +1,12 @@
-"""Creates figures for the alignment evaluation."""
+"""Creates figures for the alignment evaluation.
+
+This module visualizes results that have already been calculated
+by the metrics and statistics modules.
+
+It creates:
+- a cumulative boundary-error figure,
+- a paired recording-level MAE figure.
+"""
 
 from pathlib import Path
 
@@ -6,12 +14,21 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+
 def save_cumulative_edge_error(
     edge_df: pd.DataFrame,
     output_path: str | Path,
 ) -> None:
-    """Saves a cumulative boundary-error figure."""
+    """Create and save the cumulative boundary-error figure.
 
+    For each aligner, the absolute boundary errors are sorted
+    from smallest to largest and converted into a cumulative proportion.
+
+    The figure shows what proportion of boundaries have an error
+    up to a given number of milliseconds.
+    """
+
+    # Prepare the output path and create its parent folder if needed.
     output_path = Path(output_path)
 
     output_path.parent.mkdir(
@@ -23,6 +40,9 @@ def save_cumulative_edge_error(
         figsize=(8, 5)
     )
 
+
+    # Build one cumulative error curve for MFA
+    # and one for WebMAUS.
     for aligner in ("MFA", "WebMAUS"):
         aligner_edges = edge_df[
             edge_df["aligner"] == aligner
@@ -33,6 +53,8 @@ def save_cumulative_edge_error(
             .to_numpy()
         )
 
+        # Sort errors so the cumulative proportion
+        # can be calculated from smallest to largest.
         errors = np.sort(errors)
 
         ranks = np.arange(
@@ -49,6 +71,8 @@ def save_cumulative_edge_error(
             label=aligner,
         )
 
+
+    # Add labels, title, axis limits, and legend.
     ax.set_xlabel(
         "Absolute word-edge displacement (ms)"
     )
@@ -65,6 +89,9 @@ def save_cumulative_edge_error(
     ax.set_ylim(0, 1.01)
     ax.legend()
 
+
+    # Adjust the layout, save the figure, and close it
+    # so the plotting object does not remain open in memory.
     fig.tight_layout()
     fig.savefig(output_path)
 
@@ -75,8 +102,15 @@ def save_paired_recording_mae(
     per_file_df: pd.DataFrame,
     output_path: str | Path,
 ) -> None:
-    """Saves the paired recording-level error figure."""
+    """Create and save the paired recording-level MAE figure.
 
+    Each recording contributes one MFA value and one WebMAUS value.
+
+    The two values are connected by a line so the direction
+    of the difference can be seen for every recording.
+    """
+
+    # Prepare the output path and create its parent folder if needed.
     output_path = Path(output_path)
 
     output_path.parent.mkdir(
@@ -88,7 +122,10 @@ def save_paired_recording_mae(
         figsize=(4.2, 3.6)
     )
 
-    # Connect the two values for every recording.
+
+    # Connect the MFA and WebMAUS values for each recording.
+    # Green solid lines mean MFA has the lower error.
+    # Pink dashed lines mean WebMAUS has the lower error.
     for row in per_file_df.itertuples(
         index=False
     ):
@@ -112,7 +149,8 @@ def save_paired_recording_mae(
             zorder=1,
         )
 
-    # MFA points
+
+    # Plot the MFA recording-level MAE values on the left.
     ax.scatter(
         np.zeros(len(per_file_df)),
         per_file_df["MFA_MAE_ms"],
@@ -123,7 +161,8 @@ def save_paired_recording_mae(
         zorder=3,
     )
 
-    # WebMAUS points
+
+    # Plot the WebMAUS recording-level MAE values on the right.
     ax.scatter(
         np.ones(len(per_file_df)),
         per_file_df["WebMAUS_MAE_ms"],
@@ -134,6 +173,8 @@ def save_paired_recording_mae(
         zorder=3,
     )
 
+
+    # Label the two x-axis positions and the y-axis.
     ax.set_xticks(
         [0, 1],
         ["MFA", "WebMAUS"],
@@ -145,7 +186,9 @@ def save_paired_recording_mae(
 
     ax.set_ylim(bottom=0)
 
-    # Light horizontal grid
+
+    # Add a light horizontal grid and remove unnecessary frame lines
+    # to make the figure easier to read.
     ax.grid(
         axis="y",
         linestyle=":",
@@ -153,11 +196,12 @@ def save_paired_recording_mae(
         color="0.82",
     )
 
-    # Cleaner frame
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
-    # Small legend without another import
+
+    # Add legend entries that summarize which aligner
+    # had the lower error across the 16 recordings.
     ax.plot(
         [],
         [],
@@ -175,13 +219,15 @@ def save_paired_recording_mae(
     )
 
     ax.legend(
-    frameon=False,
-    loc="lower center",
-    bbox_to_anchor=(0.5, 1.02),
-    fontsize=7,
-    ncol=2,
+        frameon=False,
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.02),
+        fontsize=7,
+        ncol=2,
     )
 
+
+    # Adjust spacing, save the figure, and close it.
     fig.tight_layout()
 
     fig.savefig(

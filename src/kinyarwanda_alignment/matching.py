@@ -1,4 +1,11 @@
-"""Functions for matching word sequences across alignment systems."""
+"""Functions for matching word sequences across alignment systems.
+
+This module prepares word labels for comparison and finds where
+the manual word sequence occurs inside an automatic alignment.
+
+The matching is based only on lexical identity and word order,
+not on timing.
+"""
 
 from collections.abc import Sequence
 
@@ -6,14 +13,21 @@ from .file_utils import normalize_word
 
 
 class SequenceMatchError(ValueError):
-    """Represents an error when a word sequence cannot be matched uniquely."""
+    """Error raised when a word sequence cannot be matched exactly once."""
 
 
 def find_contiguous_sequence(
     target_labels: Sequence[str],
     candidate_labels: Sequence[str],
 ) -> list[int]:
-    """Returns all positions where the target sequence occurs."""
+    """Find all starting positions where the target sequence occurs.
+
+    The function compares the target and candidate sequences
+    by word labels and order.
+
+    It returns a list because the same sequence may occur
+    zero, one, or multiple times.
+    """
 
     target = list(target_labels)
     candidate = list(candidate_labels)
@@ -21,12 +35,16 @@ def find_contiguous_sequence(
     n_target = len(target)
     n_candidate = len(candidate)
 
+    # No match is possible if the target is empty
+    # or longer than the candidate sequence.
     if n_target == 0 or n_target > n_candidate:
         return []
 
     starts = []
 
-    # Match words only by their labels and order, not by timing.
+    # Slide across the candidate sequence and compare
+    # each possible contiguous section with the target.
+    # Timing is deliberately not used here.
     for start in range(n_candidate - n_target + 1):
         candidate_part = candidate[start : start + n_target]
 
@@ -37,7 +55,11 @@ def find_contiguous_sequence(
 
 
 def normalized_labels(intervals: Sequence) -> list[str]:
-    """Returns normalized word labels from a sequence of intervals."""
+    """Return normalized word labels from TextGrid intervals.
+
+    Each interval's label is passed through normalize_word()
+    so small formatting differences do not prevent lexical matching.
+    """
 
     return [
         normalize_word(interval.mark)
@@ -50,7 +72,16 @@ def find_unique_sequence_start(
     candidate_labels: Sequence[str],
     source_label: str,
 ) -> int:
-    """Returns the starting position of one unique sequence match."""
+    """Return the start position of one unique sequence match.
+
+    The function first finds all possible matches.
+
+    Exactly one match is required:
+    - zero matches means the sequence was not found;
+    - more than one match means the correspondence is ambiguous.
+
+    In either case, SequenceMatchError is raised.
+    """
 
     starts = find_contiguous_sequence(
         target_labels,
